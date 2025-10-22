@@ -19,10 +19,3 @@ with app.app_context():
 @app.route('/healthz', methods=['GET'])
 def health_check():
     return {"status": "healthy"}, 200
-
-@app.route('/users', methods=['GET'])
-def get_users():
-    users = Usuario.query.all()
-    return {
-        "users": users
-    }, 200
