@@ -8,7 +8,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
-
+#No se que estoy haciendo
 db.init_app(app)
 
 with app.app_context():
