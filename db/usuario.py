@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import String, types, ForeignKey, Integer
+from sqlalchemy import String, types, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from flask_login import UserMixin
 from db.init import db
