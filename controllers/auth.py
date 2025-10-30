@@ -125,7 +125,7 @@ def forgot_password():
     if not user:
         return jsonify({'error': 'email not found'}), 404
 
-    code = str(secrets.randbelow(900000) + 100000)
+    code = ''.join(secrets.choice('0123456789') for _ in range(6))
     expires = datetime.utcnow() + timedelta(minutes=15)
     pr = PasswordReset(id=uuid.uuid4(), user_id=user.id, code=code, expires_at=expires, used=False)
     db.session.add(pr)
