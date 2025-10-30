@@ -1,4 +1,5 @@
 import os
+import uuid
 from flask import Flask
 from db.init import db
 from dotenv import load_dotenv
@@ -20,9 +21,8 @@ login_manager.init_app(app)
 @login_manager.user_loader
 def load_user(user_id):
     try:
-        import uuid as _uuid
         # convert string id back to UUID if possible
-        uid = _uuid.UUID(user_id)
+        uid = uuid.UUID(user_id)
         return Usuario.query.get(uid)
     except Exception:
         # fallback: try direct get (some DBs accept string)
