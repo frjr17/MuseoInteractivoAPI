@@ -6,7 +6,7 @@ from sqlalchemy import String, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from db.init import db
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class PasswordReset(db.Model):
@@ -19,4 +19,4 @@ class PasswordReset(db.Model):
     used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     def is_valid(self) -> bool:
-        return (not self.used) and (self.expires_at > datetime.utcnow())
+        return (not self.used) and (self.expires_at > datetime.now(timezone.utc))
