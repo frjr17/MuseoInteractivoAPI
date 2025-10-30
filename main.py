@@ -3,7 +3,6 @@ from flask import Flask
 from db.init import db
 from dotenv import load_dotenv
 from db.usuario import Usuario
-from db.password_reset import PasswordReset
 from flask_login import LoginManager
 load_dotenv()
 
