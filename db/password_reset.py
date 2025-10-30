@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
 
 from sqlalchemy import String, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
