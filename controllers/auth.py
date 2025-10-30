@@ -59,6 +59,7 @@ def send_reset_email(to_email: str, code: str) -> None:
                     # try EHLO/NOOP to ensure connection
                     s.ehlo()
                 except Exception:
+                    # Ignore EHLO errors; some dev/test SMTP servers may not support it.
                     pass
                 s.send_message(msg)
     except Exception as e:
