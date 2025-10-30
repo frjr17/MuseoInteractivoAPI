@@ -12,6 +12,8 @@ import uuid
 class Usuario(db.Model, UserMixin):
     __tablename__ = "usuarios"
 
+    def get_id(self) -> str:
+        return str(self.id)
     id: Mapped[uuid.UUID] = mapped_column(
         types.Uuid, primary_key=True, default=uuid.uuid4)
     nombre: Mapped[str] = mapped_column(String(50), nullable=False)
