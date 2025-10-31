@@ -6,10 +6,11 @@ except Exception:
     # In environments where flask-cors is not installed (CI/dev), fall back to a no-op
     # so imports don't fail. Install Flask-Cors in production/dev environments.
     CORS = lambda *a, **k: None
-from db.init import db
 from dotenv import load_dotenv
+from db.init import db
 from db.usuario import Usuario
 from db.password_reset import PasswordReset
+from db.room import Room, Hint
 from flask_login import LoginManager
 load_dotenv()
 
