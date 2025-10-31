@@ -54,6 +54,8 @@ def unauthorized_callback():
 
 from controllers.auth import bp as auth_bp
 app.register_blueprint(auth_bp)
+from controllers.users import bp as users_bp
+app.register_blueprint(users_bp)
 
 with app.app_context():
     # ensure models are imported so SQLAlchemy registers them before creating tables
