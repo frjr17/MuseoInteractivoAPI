@@ -90,6 +90,7 @@ def register():
     )
     db.session.add(user)
     db.session.commit()
+    login_user(user)
     return jsonify({'id': str(user.id), 'email': user.email}), 201
 
 
@@ -179,3 +180,23 @@ def reset_password():
     db.session.commit()
 
     return jsonify({'status': 'password_changed'}), 200
+
+
+@bp.route('/me', methods=['GET'])
+@login_required
+def me():
+    """Return the current logged-in user's basic info. Use this to verify the session cookie."""
+    user = current_user
+    try:
+        uid = str(user.id)
+    except Exception:
+        uid = None
+
+    return jsonify({
+        'id': uid,
+        'email': getattr(user, 'email', None),
+        'nombre': getattr(user, 'nombre', None),
+        'apellido': getattr(user, 'apellido', None),
+        'role': getattr(user, 'role', None),
+        'is_authenticated': bool(user.is_authenticated),
+    }), 200
