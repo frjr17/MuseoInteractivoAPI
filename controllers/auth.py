@@ -22,7 +22,7 @@ def send_reset_email(to_email: str, code: str) -> None:
     port = os.getenv('SMTP_PORT')
     user = os.getenv('SMTP_USER')
     password = os.getenv('SMTP_PASSWORD')
-    sender = os.getenv('EMAIL_FROM', user)
+    sender = os.getenv('EMAIL_FROM')
 
     subject = 'Código de restablecimiento de contraseña'
     body = f'Su código de restablecimiento de contraseña es: {code}\nEste código es válido por 15 minutos.'
