@@ -140,7 +140,7 @@ def create_user():
     return jsonify(user_to_dict(u)), 201
 
 
-def apply_user_updates(user: Usuario, data: dict, allow_role_change: bool = False) -> (bool, str):
+def apply_user_updates(user: Usuario, data: dict, allow_role_change: bool = False) -> (bool, str): # type: ignore
     # returns (changed, error_message)
     # Allowed updates: nombre, apellido, email (admin), password (admin), role (admin), is_active (admin)
     changed = False

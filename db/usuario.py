@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from flask_login import UserMixin
 from db.init import db
 import uuid
-from sqlalchemy import Boolean
+from sqlalchemy import Boolean #linea agregada
 
 
 class Usuario(db.Model, UserMixin):
@@ -27,4 +27,4 @@ class Usuario(db.Model, UserMixin):
     total_points: Mapped[Optional[int]] = mapped_column(
         Integer, nullable=True, default=0)
     role: Mapped[str] = mapped_column(String(50), nullable=False, default='USER')
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True) #linea agregada
