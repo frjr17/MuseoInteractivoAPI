@@ -5,7 +5,7 @@ from db.usuario import Usuario
 from db.init import db
 from db.password_reset import PasswordReset
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,timezone
 import secrets
 import os
 import smtplib
@@ -22,7 +22,7 @@ def send_reset_email(to_email: str, code: str) -> None:
     port = os.getenv('SMTP_PORT')
     user = os.getenv('SMTP_USER')
     password = os.getenv('SMTP_PASSWORD')
-    sender = os.getenv('EMAIL_FROM', user)
+    sender = os.getenv('EMAIL_FROM')
 
     subject = 'Código de restablecimiento de contraseña'
     body = f'Su código de restablecimiento de contraseña es: {code}\nEste código es válido por 15 minutos.'
@@ -69,6 +69,18 @@ def send_reset_email(to_email: str, code: str) -> None:
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 
+def _to_bool(value):
+    """Normalize various truthy/falsy values to boolean."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    if isinstance(value, (int, float)):
+        return bool(value)
+    s = str(value).strip().lower()
+    return s in ('1', 'true', 't', 'yes', 'y', 'on')
+
+
 @bp.route('/register', methods=['POST'])
 def register():
     data = request.get_json() or {}
@@ -90,6 +102,8 @@ def register():
     )
     db.session.add(user)
     db.session.commit()
+    # On registration, always remember the user (frontend does not send rememberMe here)
+    login_user(user, remember=True)
     return jsonify({'id': str(user.id), 'email': user.email}), 201
 
 
@@ -103,7 +117,9 @@ def login():
     if not user or not check_password_hash(user.password, data['password']):
         return jsonify({'error': 'invalid credentials'}), 401
 
-    login_user(user)
+    # Consider rememberMe field from frontend; default to False if not provided
+    remember = _to_bool(data.get('rememberMe', False))
+    login_user(user, remember=remember)
     return jsonify({'id': str(user.id), 'email': user.email, 'role': user.role}), 200
 
 
@@ -126,7 +142,7 @@ def forgot_password():
         return jsonify({'error': 'email not found'}), 404
 
     code = str(secrets.randbelow(900000) + 100000)
-    expires = datetime.utcnow() + timedelta(minutes=15)
+    expires = datetime.now(timezone.utc) + timedelta(minutes=15)
     pr = PasswordReset(id=uuid.uuid4(), user_id=user.id, code=code, expires_at=expires, used=False)
     db.session.add(pr)
     db.session.commit()
@@ -179,3 +195,23 @@ def reset_password():
     db.session.commit()
 
     return jsonify({'status': 'password_changed'}), 200
+
+
+@bp.route('/me', methods=['GET'])
+@login_required
+def me():
+    """Return the current logged-in user's basic info. Use this to verify the session cookie."""
+    user = current_user
+    try:
+        uid = str(user.id)
+    except Exception:
+        uid = None
+
+    return jsonify({
+        'id': uid,
+        'email': getattr(user, 'email', None),
+        'nombre': getattr(user, 'nombre', None),
+        'apellido': getattr(user, 'apellido', None),
+        'role': getattr(user, 'role', None),
+        'is_authenticated': bool(user.is_authenticated),
+    }), 200
