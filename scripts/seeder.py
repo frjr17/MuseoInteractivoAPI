@@ -9,6 +9,8 @@ This script is idempotent for basic runs (it will not duplicate rooms/hints by n
 """
 from datetime import datetime
 import uuid
+import os
+import json
 
 from werkzeug.security import generate_password_hash
 
@@ -96,8 +98,6 @@ def seed():
                 db.create_all()
 
                 # If a seed_data.json file exists in the project root, use it instead of SAMPLE_ROOMS.
-                import json, os
-
                 # Prefer seed_data.json in the project root, fall back to the script directory
                 project_root = os.getcwd()
                 script_dir = os.path.dirname(__file__)
@@ -132,8 +132,16 @@ def seed():
                 else:
                         print("Found existing test user", user.email)
 
+                # Determine if UsuarioHint has an is_unlocked column
+                try:
+                        uh_columns = set(UsuarioHint.__table__.columns.keys())
+                except Exception:
+                        uh_columns = set()
+
                 # Create rooms and hints (skip duplicates by name)
-                for rdata in SAMPLE_ROOMS:
+                for idx, rdata in enumerate(rooms_data):
+                        is_first_room = (idx == 0)
+
                         room = Room.query.filter_by(name=rdata['name']).first()
                         if not room:
                                 room = Room(name=rdata['name'], description=rdata['description'], image_url=rdata.get('image_url'))
@@ -158,17 +166,22 @@ def seed():
                         # Ensure test user has access to the room via UsuarioRoom if not exists
                         ur = UsuarioRoom.query.filter_by(usuario_id=user.id, room_id=room.id).first()
                         if not ur:
-                                ur = UsuarioRoom(usuario_id=user.id, room_id=room.id, completed=False, is_unlocked=True)
+                                # only first room unlocked by default
+                                ur = UsuarioRoom(usuario_id=user.id, room_id=room.id, completed=False, is_unlocked=is_first_room)
                                 db.session.add(ur)
                                 db.session.commit()
-                                print(f"  Granted access for user {user.email} to room {room.name}")
+                                state = "unlocked" if is_first_room else "locked"
+                                print(f"  Granted access for user {user.email} to room {room.name} ({state})")
 
                         # Ensure UsuarioHint entries exist for each hint (mark all as not completed)
-                        hints = Hint.query.filter_by(room_id=room.id).all()
-                        for h in hints:
+                        hints = Hint.query.filter_by(room_id=room.id).order_by(Hint.id).all()
+                        for h_idx, h in enumerate(hints):
                                 uh = UsuarioHint.query.filter_by(usuario_id=user.id, hint_id=h.id).first()
                                 if not uh:
                                         uh = UsuarioHint(usuario_id=user.id, hint_id=h.id, completed=False)
+                                        # only unlock the first hint of the first room
+                                        if is_first_room and h_idx == 0 and 'is_unlocked' in uh_columns:
+                                                uh.is_unlocked = True
                                         db.session.add(uh)
                 db.session.commit()
 
