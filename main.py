@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from db.init import db
 from db.usuario import Usuario
 from db.password_reset import PasswordReset
-from db.room import Room, Hint
+from db.room import Room, Hint, UsuarioRoom, UsuarioHint
 from flask_login import LoginManager
 load_dotenv()
 

@@ -8,12 +8,21 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from db.init import db
 
 
-# association table for many-to-many between usuarios and rooms
-usuarios_rooms = db.Table(
-    "usuarios_rooms",
-    db.Column("usuario_id", sa_types.Uuid, db.ForeignKey("usuarios.id", ondelete="CASCADE"), primary_key=True),
-    db.Column("room_id", Integer, db.ForeignKey("rooms.id", ondelete="CASCADE"), primary_key=True),
-)
+# Association object for usuarios <-> rooms with per-user metadata
+class UsuarioRoom(db.Model):
+    __tablename__ = "usuarios_rooms"
+
+    usuario_id: Mapped[sa_types.Uuid] = mapped_column(
+        sa_types.Uuid, db.ForeignKey("usuarios.id", ondelete="CASCADE"), primary_key=True
+    )
+    room_id: Mapped[int] = mapped_column(Integer, db.ForeignKey("rooms.id", ondelete="CASCADE"), primary_key=True)
+    # per-user flags
+    completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_unlocked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # relationships to parent objects
+    usuario = relationship("Usuario", back_populates="usuario_rooms")
+    room = relationship("Room", back_populates="room_users")
 
 
 class Room(db.Model):
@@ -23,16 +32,17 @@ class Room(db.Model):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(String(2000), nullable=False)
     image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    is_unlocked: Mapped[bool] = mapped_column(Boolean, nullable=True, default=False)
 
-    # backref to users that have access
+    # convenience many-to-many to usuarios (via usuarios_rooms table)
     usuarios: Mapped[list] = relationship(
         "Usuario",
-        secondary=usuarios_rooms,
+        secondary="usuarios_rooms",
         back_populates="rooms",
         lazy="selectin",
     )
+
+    # access to the association objects for per-user metadata
+    room_users: Mapped[list[UsuarioRoom]] = relationship("UsuarioRoom", back_populates="room", lazy="selectin")
 
 
 class Hint(db.Model):
@@ -44,6 +54,19 @@ class Hint(db.Model):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(String(2000), nullable=False)
     image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     room: Mapped[Optional[Room]] = relationship("Room", backref="hints", lazy="selectin")
+
+
+# Association table for per-user hint completion
+class UsuarioHint(db.Model):
+    __tablename__ = "usuarios_hints"
+
+    usuario_id: Mapped[sa_types.Uuid] = mapped_column(
+        sa_types.Uuid, db.ForeignKey("usuarios.id", ondelete="CASCADE"), primary_key=True
+    )
+    hint_id: Mapped[int] = mapped_column(Integer, db.ForeignKey("hints.id", ondelete="CASCADE"), primary_key=True)
+    completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    usuario = relationship("Usuario", backref="usuario_hints")
+    hint = relationship("Hint", backref="hint_users")

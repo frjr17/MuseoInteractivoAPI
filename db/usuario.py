@@ -37,3 +37,5 @@ class Usuario(db.Model, UserMixin):
         back_populates="usuarios",
         lazy="selectin",
     )
+    # access to association objects for per-user room metadata
+    usuario_rooms: Mapped[list] = relationship("UsuarioRoom", back_populates="usuario", lazy="selectin")
