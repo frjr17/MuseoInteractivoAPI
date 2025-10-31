@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 from flask_login import login_required, current_user
-from db.room import Room, Hint
+from db.room import Room, Hint, UsuarioRoom, UsuarioHint
 
 bp = Blueprint('rooms', __name__, url_prefix='/rooms')
 
@@ -12,7 +12,11 @@ def list_rooms():
     rooms = Room.query.order_by(Room.id).all()
 
     # Build a quick lookup for the current user's UsuarioRoom entries if available
-    usuario_rooms_lookup = {ur.room_id: ur for ur in getattr(current_user, 'usuario_rooms', [])}
+    ur_items = getattr(current_user, 'usuario_rooms', [])
+    # relationship may be a single object or a collection depending on mapper state; normalize to list
+    if isinstance(ur_items, UsuarioRoom):
+        ur_items = [ur_items]
+    usuario_rooms_lookup = {ur.room_id: ur for ur in (ur_items or [])}
 
     result = []
     for r in rooms:
@@ -40,7 +44,10 @@ def get_room_hints(room_id: int):
     hints = Hint.query.filter_by(room_id=room_id).order_by(Hint.id).all()
 
     # Build lookup for user's hint completion
-    usuario_hints_lookup = {uh.hint_id: uh for uh in getattr(current_user, 'usuario_hints', [])}
+    uh_items = getattr(current_user, 'usuario_hints', [])
+    if isinstance(uh_items, UsuarioHint):
+        uh_items = [uh_items]
+    usuario_hints_lookup = {uh.hint_id: uh for uh in (uh_items or [])}
 
     hints_out = []
     for h in hints:
