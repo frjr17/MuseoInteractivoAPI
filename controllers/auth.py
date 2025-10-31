@@ -5,7 +5,7 @@ from db.usuario import Usuario
 from db.init import db
 from db.password_reset import PasswordReset
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,timezone
 import secrets
 import os
 import smtplib
@@ -142,7 +142,7 @@ def forgot_password():
         return jsonify({'error': 'email not found'}), 404
 
     code = str(secrets.randbelow(900000) + 100000)
-    expires = datetime.now(datetime.timezone.utc) + timedelta(minutes=15)
+    expires = datetime.now(timezone.utc) + timedelta(minutes=15)
     pr = PasswordReset(id=uuid.uuid4(), user_id=user.id, code=code, expires_at=expires, used=False)
     db.session.add(pr)
     db.session.commit()
