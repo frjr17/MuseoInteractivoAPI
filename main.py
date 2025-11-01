@@ -6,10 +6,11 @@ except Exception:
     # In environments where flask-cors is not installed (CI/dev), fall back to a no-op
     # so imports don't fail. Install Flask-Cors in production/dev environments.
     CORS = lambda *a, **k: None
-from db.init import db
 from dotenv import load_dotenv
+from db.init import db
 from db.usuario import Usuario
 from db.password_reset import PasswordReset
+from db.room import Room, Hint, UsuarioRoom, UsuarioHint
 from flask_login import LoginManager
 load_dotenv()
 
@@ -54,6 +55,8 @@ def unauthorized_callback():
 
 from controllers.auth import bp as auth_bp
 app.register_blueprint(auth_bp)
+from controllers.rooms import bp as rooms_bp
+app.register_blueprint(rooms_bp)
 from controllers.users import bp as users_bp
 app.register_blueprint(users_bp)
 

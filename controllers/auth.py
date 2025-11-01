@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, logout_user, current_user, login_required
 from db.usuario import Usuario
+from db.room import Room, Hint, UsuarioRoom, UsuarioHint
 from db.init import db
 from db.password_reset import PasswordReset
 import uuid
@@ -104,6 +105,30 @@ def register():
     db.session.commit()
     # On registration, always remember the user (frontend does not send rememberMe here)
     login_user(user, remember=True)
+
+    # Create per-user room and hint records so the frontend can show progress
+    try:
+        rooms = Room.query.all()
+        for room in rooms:
+            is_first_room = (room.id == 1)
+            # create UsuarioRoom if not exists
+            ur = UsuarioRoom.query.filter_by(usuario_id=user.id, room_id=room.id).first()
+            if not ur:
+                ur = UsuarioRoom(usuario_id=user.id, room_id=room.id, completed=is_first_room, is_unlocked=is_first_room)
+                db.session.add(ur)
+
+            # ensure UsuarioHint entries exist for each hint in the room
+            hints = Hint.query.filter_by(room_id=room.id).all()
+            for h in hints:
+                uh = UsuarioHint.query.filter_by(usuario_id=user.id, hint_id=h.id).first()
+                if not uh:
+                    uh = UsuarioHint(usuario_id=user.id, hint_id=h.id, completed=is_first_room)
+                    db.session.add(uh)
+        db.session.commit()
+    except Exception:
+        # don't block registration for DB errors here; log in real app
+        db.session.rollback()
+
     return jsonify({'id': str(user.id), 'email': user.email}), 201
 
 
@@ -213,5 +238,6 @@ def me():
         'nombre': getattr(user, 'nombre', None),
         'apellido': getattr(user, 'apellido', None),
         'role': getattr(user, 'role', None),
-        'is_authenticated': bool(user.is_authenticated),
+        'totalPoints': getattr(user, 'total_points', None),
+        'isAuthenticated': bool(user.is_authenticated),
     }), 200
