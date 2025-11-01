@@ -114,7 +114,7 @@ def register():
             # create UsuarioRoom if not exists
             ur = UsuarioRoom.query.filter_by(usuario_id=user.id, room_id=room.id).first()
             if not ur:
-                ur = UsuarioRoom(usuario_id=user.id, room_id=room.id, completed=is_first_room, is_unlocked=is_first_room)
+                ur = UsuarioRoom(usuario_id=user.id, room_id=room.id, completed=is_first_room, is_unlocked=(is_first_room or room.id == 2))
                 db.session.add(ur)
 
             # ensure UsuarioHint entries exist for each hint in the room
