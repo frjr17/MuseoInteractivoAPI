@@ -110,10 +110,11 @@ def register():
     try:
         rooms = Room.query.all()
         for room in rooms:
+            is_first_room = (room.id == 1)
             # create UsuarioRoom if not exists
             ur = UsuarioRoom.query.filter_by(usuario_id=user.id, room_id=room.id).first()
             if not ur:
-                ur = UsuarioRoom(usuario_id=user.id, room_id=room.id, completed=False, is_unlocked=True)
+                ur = UsuarioRoom(usuario_id=user.id, room_id=room.id, completed=is_first_room, is_unlocked=is_first_room)
                 db.session.add(ur)
 
             # ensure UsuarioHint entries exist for each hint in the room
@@ -121,7 +122,7 @@ def register():
             for h in hints:
                 uh = UsuarioHint.query.filter_by(usuario_id=user.id, hint_id=h.id).first()
                 if not uh:
-                    uh = UsuarioHint(usuario_id=user.id, hint_id=h.id, completed=False)
+                    uh = UsuarioHint(usuario_id=user.id, hint_id=h.id, completed=is_first_room)
                     db.session.add(uh)
         db.session.commit()
     except Exception:
@@ -237,5 +238,6 @@ def me():
         'nombre': getattr(user, 'nombre', None),
         'apellido': getattr(user, 'apellido', None),
         'role': getattr(user, 'role', None),
-        'is_authenticated': bool(user.is_authenticated),
+        'totalPoints': getattr(user, 'total_points', None),
+        'isAuthenticated': bool(user.is_authenticated),
     }), 200

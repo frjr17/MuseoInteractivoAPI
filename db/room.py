@@ -30,9 +30,7 @@ class Room(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(String(2000), nullable=False)
-    image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-
+    final_code: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     # convenience many-to-many to usuarios (via usuarios_rooms table)
     usuarios: Mapped[list] = relationship(
         "Usuario",
@@ -52,9 +50,8 @@ class Hint(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     room_id: Mapped[int] = mapped_column(Integer, db.ForeignKey("rooms.id", ondelete="CASCADE"), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(String(2000), nullable=False)
     image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-
+    lime_survey_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     room: Mapped[Optional[Room]] = relationship("Room", backref="hints", lazy="selectin")
 
 

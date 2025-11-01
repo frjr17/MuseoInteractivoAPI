@@ -11,6 +11,26 @@ from datetime import datetime
 import uuid
 
 from werkzeug.security import generate_password_hash
+import os
+import dotenv
+
+# Load environment variables from .env file if present
+dotenv.load_dotenv()
+
+# Environment-configurable hosts (defaults keep previous hardcoded hosts)
+LIME_SURVEY_HOST = os.getenv("LIME_SURVEY_HOST", "http://74.249.132.255")
+FILES_HOST = os.getenv(
+        "FILES_HOST", "https://museo-interactivo-files.sfo3.digitaloceanspaces.com"
+)
+
+
+def _join_host_path(host: str, path: str) -> str:
+        """Join host and path ensuring there is exactly one slash between them."""
+        if not host:
+                return path
+        host = host.rstrip("/")
+        path = path.lstrip("/")
+        return f"{host}/{path}"
 
 from main import app
 from db.init import db
@@ -18,75 +38,23 @@ from db.usuario import Usuario
 from db.room import Room, Hint, UsuarioRoom, UsuarioHint
 
 
-SAMPLE_ROOMS = [
-        {
-                "name": "Sala de Historia",
-                "description": "Explora objetos antiguos y descubre sus secretos.",
-                "image_url": None,
-                "hints": [
-                        {"title": "Pista 1 - Busca la placa", "description": "Revisa la placa dentro del estuche.", "image_url": None},
-                        {"title": "Pista 2 - Cuenta los símbolos", "description": "Anota los símbolos alrededor del borde.", "image_url": None},
-                        {"title": "Pista 3 - Fecha oculta", "description": "Inspecciona el reverso para una fecha grabada.", "image_url": None},
-                        {"title": "Pista 4 - Material", "description": "Toca la superficie para identificar el material.", "image_url": None},
-                        {"title": "Pista 5 - Relación", "description": "Relaciona el objeto con el mapa histórico en la pared.", "image_url": None},
-                ],
-        },
-        {
-                "name": "Sala de Ciencia",
-                "description": "Experimentos interactivos que explican principios científicos.",
-                "image_url": None,
-                "hints": [
-                        {"title": "Pista 1 - Observa la reacción", "description": "Fíjate en la reacción en el primer cilindro.", "image_url": None},
-                        {"title": "Pista 2 - Medición", "description": "Mide la proporción entre los dos líquidos.", "image_url": None},
-                        {"title": "Pista 3 - Temperatura", "description": "Siente la variación de temperatura cerca del experimento.", "image_url": None},
-                        {"title": "Pista 4 - Voltaje", "description": "Revisa las conexiones eléctricas de la maqueta.", "image_url": None},
-                        {"title": "Pista 5 - Resultado esperado", "description": "Compara tu observación con la tabla de resultados.", "image_url": None},
-                ],
-        },
-        {
-                "name": "Sala de Arte",
-                "description": "Obras que desafían la percepción.",
-                "image_url": None,
-                "hints": [
-                        {"title": "Pista 1 - Colores ocultos", "description": "Ilumina la obra para ver los colores escondidos.", "image_url": None},
-                        {"title": "Pista 2 - Firma del autor", "description": "Busca una firma en la esquina inferior derecha.", "image_url": None},
-                        {"title": "Pista 3 - Técnica", "description": "Observa la textura para identificar la técnica usada.", "image_url": None},
-                        {"title": "Pista 4 - Perspectiva", "description": "Cambia de ángulo para descubrir un detalle oculto.", "image_url": None},
-                        {"title": "Pista 5 - Inspiración", "description": "Lee la placa para conocer la inspiración detrás de la obra.", "image_url": None},
-                ],
-        },
-        {
-                "name": "Sala de Tecnología",
-                "description": "Innovaciones tecnológicas y su evolución.",
-                "image_url": None,
-                "hints": [
-                        {"title": "Pista 1 - Componentes", "description": "Identifica los componentes principales del prototipo.", "image_url": None},
-                        {"title": "Pista 2 - Línea de tiempo", "description": "Consulta la línea temporal para ubicar el invento.", "image_url": None},
-                        {"title": "Pista 3 - Software", "description": "Observa la interfaz en la pantalla interactiva.", "image_url": None},
-                        {"title": "Pista 4 - Fuente de energía", "description": "Localiza la fuente de alimentación del dispositivo.", "image_url": None},
-                        {"title": "Pista 5 - Aplicación", "description": "Piensa en un uso práctico para esta tecnología.", "image_url": None},
-                ],
-        },
-        {
-                "name": "Sala de Naturaleza",
-                "description": "Ecosistemas, flora y fauna en exhibición.",
-                "image_url": None,
-                "hints": [
-                        {"title": "Pista 1 - Hábitat", "description": "Identifica el hábitat natural del ejemplar.", "image_url": None},
-                        {"title": "Pista 2 - Alimentación", "description": "Observa las adaptaciones relacionadas con la alimentación.", "image_url": None},
-                        {"title": "Pista 3 - Ciclo de vida", "description": "Revisa el diagrama del ciclo de vida en el panel.", "image_url": None},
-                        {"title": "Pista 4 - Adaptación", "description": "Busca rasgos que ayuden a la supervivencia.", "image_url": None},
-                        {"title": "Pista 5 - Conservación", "description": "Lee sobre las medidas de conservación para esta especie.", "image_url": None},
-                ],
-        },
+ROOM_NAMES = [
+    "El Secreto del Canal",
+    "Leyendas Panameñas",
+    "El tesoro verde de Panamá",
+    "Sabores y Colores de Panamá",
+    "Las llaves de la ciudad",
 ]
+
+# We'll generate 5 hints per room named "Pista 1" .. "Pista 5" and set
+# the lime_survey_url and image_url based on the created room.id and hint index.
 
 
 TEST_USER = {
         "email": "test@example.com",
         "nombre": "Test",
         "apellido": "User",
-        "password": "password123",
+        "password": "secret",
 }
 
 
@@ -95,8 +63,8 @@ def seed():
                 # Create tables (if not present)
                 db.create_all()
 
-                # Use built-in SAMPLE_ROOMS
-                rooms_data = SAMPLE_ROOMS
+                # Use ROOM_NAMES and generate 5 hints per room
+                rooms_data = ROOM_NAMES
 
                 # Create or get test user
                 user = Usuario.query.filter_by(email=TEST_USER['email']).first()
@@ -121,35 +89,52 @@ def seed():
                         uh_columns = set()
 
                 # Create rooms and hints (skip duplicates by name)
-                for idx, rdata in enumerate(rooms_data):
+                for idx, room_name in enumerate(rooms_data):
                         is_first_room = (idx == 0)
 
-                        room = Room.query.filter_by(name=rdata['name']).first()
+                        full_room_name = f"Sala {idx+1}: {room_name}"
+
+                        room = Room.query.filter_by(name=full_room_name).first()
                         if not room:
-                                room = Room(name=rdata['name'], description=rdata['description'], image_url=rdata.get('image_url'))
+                                # set final_code from the images (best-effort values)
+                                final_codes = [
+                                        "1881-1904-1914-1999",
+                                        "Ru-ben-Bla-des-Patria",
+                                        "F-A-U-N-A",
+                                        "9-7-5-3-1",
+                                        "1-3-5-7-9",
+                                ]
+                                final_code = final_codes[idx] if idx < len(final_codes) else None
+                                room = Room(name=full_room_name, final_code=final_code)
                                 db.session.add(room)
                                 db.session.commit()
-                                print(f"Created room: {room.name} (id={room.id})")
+                                print(f"Created room: {room.name} (id={room.id}) final_code={final_code}")
                         else:
                                 print(f"Room already exists: {room.name} (id={room.id})")
 
-                        # Create hints for room
-                        for hdata in rdata.get('hints', []):
+                        # Create 5 hints for room (Pista 1..5)
+                        for hint_num in range(1, 6):
+                                title = f"Pista {hint_num}"
                                 # avoid duplicate hint titles for same room
-                                existing = Hint.query.filter_by(room_id=room.id, title=hdata['title']).first()
+                                existing = Hint.query.filter_by(room_id=room.id, title=title).first()
                                 if existing:
                                         print(f"  Hint exists: {existing.title} (id={existing.id})")
                                         continue
-                                hint = Hint(room_id=room.id, title=hdata['title'], description=hdata['description'], image_url=hdata.get('image_url'))
+                                lime_path = f"index.php/S{room.id}P{hint_num}"
+                                lime_url = _join_host_path(LIME_SURVEY_HOST, lime_path)
+
+                                image_path = f"S{room.id}P{hint_num}.png"
+                                image_url = _join_host_path(FILES_HOST, image_path)
+                                hint = Hint(room_id=room.id, title=title, image_url=image_url, lime_survey_url=lime_url)
                                 db.session.add(hint)
                                 db.session.commit()
-                                print(f"  Created hint: {hint.title} (id={hint.id})")
+                                print(f"  Created hint: {hint.title} (id={hint.id}) survey={lime_url}")
 
                         # Ensure test user has access to the room via UsuarioRoom if not exists
                         ur = UsuarioRoom.query.filter_by(usuario_id=user.id, room_id=room.id).first()
                         if not ur:
                                 # only first room unlocked by default
-                                ur = UsuarioRoom(usuario_id=user.id, room_id=room.id, completed=False, is_unlocked=is_first_room)
+                                ur = UsuarioRoom(usuario_id=user.id, room_id=room.id, completed=is_first_room, is_unlocked=(is_first_room or room.id == 2))
                                 db.session.add(ur)
                                 db.session.commit()
                                 state = "unlocked" if is_first_room else "locked"
@@ -160,7 +145,7 @@ def seed():
                         for h_idx, h in enumerate(hints):
                                 uh = UsuarioHint.query.filter_by(usuario_id=user.id, hint_id=h.id).first()
                                 if not uh:
-                                        uh = UsuarioHint(usuario_id=user.id, hint_id=h.id, completed=False)
+                                        uh = UsuarioHint(usuario_id=user.id, hint_id=h.id, completed=is_first_room)
                                         # only unlock the first hint of the first room
                                         if is_first_room and h_idx == 0 and 'is_unlocked' in uh_columns:
                                                 uh.is_unlocked = True
