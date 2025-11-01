@@ -9,8 +9,6 @@ This script is idempotent for basic runs (it will not duplicate rooms/hints by n
 """
 from datetime import datetime
 import uuid
-import os
-import json
 
 from werkzeug.security import generate_password_hash
 
@@ -97,24 +95,8 @@ def seed():
                 # Create tables (if not present)
                 db.create_all()
 
-                # If a seed_data.json file exists in the project root, use it instead of SAMPLE_ROOMS.
-                # Prefer seed_data.json in the project root, fall back to the script directory
-                project_root = os.getcwd()
-                script_dir = os.path.dirname(__file__)
-                seed_path = os.path.join(project_root, 'seed_data.json')
-                if not os.path.exists(seed_path):
-                        seed_path = os.path.join(script_dir, 'seed_data.json')
-                if os.path.exists(seed_path):
-                        try:
-                                with open(seed_path, 'r', encoding='utf-8') as f:
-                                        data = json.load(f)
-                                rooms_data = data.get('rooms', SAMPLE_ROOMS)
-                                print(f"Using seed data from {seed_path}")
-                        except Exception as e:
-                                print(f"Failed to parse {seed_path}, falling back to built-in sample rooms: {e}")
-                                rooms_data = SAMPLE_ROOMS
-                else:
-                        rooms_data = SAMPLE_ROOMS
+                # Use built-in SAMPLE_ROOMS
+                rooms_data = SAMPLE_ROOMS
 
                 # Create or get test user
                 user = Usuario.query.filter_by(email=TEST_USER['email']).first()

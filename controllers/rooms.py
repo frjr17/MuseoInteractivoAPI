@@ -1,6 +1,8 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from db.room import Room, Hint, UsuarioRoom, UsuarioHint
+from db.usuario import Usuario
+from db.init import db as _db
 
 bp = Blueprint('rooms', __name__, url_prefix='/rooms')
 
@@ -61,3 +63,62 @@ def get_room_hints(room_id: int):
         })
 
     return jsonify({'id': room.id, 'name': room.name, 'hints': hints_out}), 200
+
+
+@bp.route('/complete', methods=['POST'])
+@login_required
+def complete_hint_for_user():
+    """Mark a hint as completed for a user.
+
+    Expects JSON body: { "room_id": int, "hint_id": int, "email": "user@example.com" }
+    Only the user themselves or an ADMIN may mark hints for a user.
+    """
+    data = request.get_json() or {}
+    try:
+        room_id = int(data.get('room_id'))
+        hint_id = int(data.get('hint_id'))
+    except Exception:
+        return jsonify({'error': 'room_id and hint_id must be integers'}), 400
+    email = data.get('email')
+    if not email:
+        return jsonify({'error': 'email required in request body'}), 400
+
+    # permission check: allow if current_user is admin or owner
+    is_admin = getattr(current_user, 'role', None) == 'ADMIN'
+    if not is_admin and getattr(current_user, 'email', None) != email:
+        return jsonify({'error': 'forbidden'}), 403
+
+    user = Usuario.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({'error': 'user not found'}), 404
+
+    # verify hint exists and belongs to room
+    hint = Hint.query.get(hint_id)
+    if not hint or hint.room_id != room_id:
+        return jsonify({'error': 'hint not found for room'}), 404
+
+    # ensure user has UsuarioRoom record
+    ur = UsuarioRoom.query.filter_by(usuario_id=user.id, room_id=room_id).first()
+    if not ur:
+        ur = UsuarioRoom(usuario_id=user.id, room_id=room_id, completed=False, is_unlocked=True)
+        _db.session.add(ur)
+
+    # set or create UsuarioHint
+    uh = UsuarioHint.query.filter_by(usuario_id=user.id, hint_id=hint_id).first()
+    if not uh:
+        uh = UsuarioHint(usuario_id=user.id, hint_id=hint_id, completed=True)
+        _db.session.add(uh)
+    else:
+        uh.completed = True
+
+    # commit
+    try:
+        _db.session.commit()
+    except Exception as e:
+        try:
+            _db.session.rollback()
+        except Exception:
+            pass
+        return jsonify({'error': 'db error', 'detail': str(e)}), 500
+
+    return jsonify({'status': 'ok', 'hint': {'id': hint_id, 'completed': True}}), 200
