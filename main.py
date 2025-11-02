@@ -21,12 +21,12 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 # CORS and session cookie settings for browser SPA frontends.
 # FRONTEND_ORIGIN should be the exact origin (scheme + host + port) of your frontend.
 FRONTEND_ORIGIN = os.getenv('FRONTEND_ORIGIN')
-CORS(app, supports_credentials=True, resources={r"/*": {"origins": FRONTEND_ORIGIN}})
+CORS(app, supports_credentials=True)
 
 # Cookie security settings — configurable via env vars.
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SECURE'] = os.getenv('SESSION_COOKIE_SECURE', 'false').lower() == 'true'
-app.config['SESSION_COOKIE_SAMESITE'] = os.getenv('SESSION_COOKIE_SAMESITE', 'Lax')
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('SESSION_COOKIE_SECURE', 'true').lower() == 'true'
+app.config['SESSION_COOKIE_SAMESITE'] = os.getenv('SESSION_COOKIE_SAMESITE', 'None')
 
 # Init extensions
 db.init_app(app)
