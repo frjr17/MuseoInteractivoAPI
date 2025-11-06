@@ -132,7 +132,7 @@ def register():
                     usuario_id=user.id,
                     room_id=room.id,
                     completed=is_first_room,
-                    is_unlocked=(is_first_room or room.id == 2),
+                    is_unlocked=is_first_room,
                 )
                 db.session.add(ur)
 
@@ -143,9 +143,7 @@ def register():
                     usuario_id=user.id, hint_id=h.id
                 ).first()
                 if not uh:
-                    uh = UsuarioHint(
-                        usuario_id=user.id, hint_id=h.id, completed=is_first_room
-                    )
+                    uh = UsuarioHint(usuario_id=user.id, hint_id=h.id, completed=False)
                     db.session.add(uh)
         db.session.commit()
     except Exception:
