@@ -72,6 +72,33 @@ def get_room_hints(room_id: int):
     return jsonify({"id": room.id, "name": room.name,"final_code":room.final_code, "hints": hints_out}), 200
 
 
+@bp.route("/<int:room_id>/verify_final_code", methods=["POST"])
+@login_required
+def verify_final_code(room_id: int):
+    """Verify a submitted final code for a room.
+
+    Request JSON: { "final_code": "..." }
+    Response: { "room_id": <int>, "correct": true|false }
+    """
+    # Only allow verifying the final code for the first room (id == 1)
+    if int(room_id) != 1:
+        return jsonify({"error": "final code verification only allowed for room 1"}), 403
+
+    room = Room.query.get(room_id)
+    if room is None:
+        return jsonify({"error": "room not found"}), 404
+
+    data = request.get_json() or {}
+    submitted = data.get("final_code") or data.get("code")
+    if submitted is None:
+        return jsonify({"error": "final_code required in request body"}), 400
+
+    # simple equality check (case-sensitive). If you want case-insensitive, change accordingly.
+    correct = (room.final_code == submitted)
+
+    return jsonify({"room_id": room.id, "correct": bool(correct)}), 200
+
+
 @bp.route("/complete", methods=["POST"])
 @login_required
 def complete_hint_for_user():
