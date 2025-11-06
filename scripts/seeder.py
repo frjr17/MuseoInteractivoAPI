@@ -159,19 +159,19 @@ def seed():
                 ur = UsuarioRoom(
                     usuario_id=user.id,
                     room_id=room.id,
-                    completed=is_first_room,
-                    is_unlocked=(is_first_room or room.id == 2),
+                    completed=False,
+                    is_unlocked=is_first_room,
                 )
                 db.session.add(ur)
                 db.session.commit()
-                state = "unlocked" if is_first_room else "locked"
+                state = "unlocked" 
                 print(
                     f"  Granted access for user {user.email} to room {room.name} ({state})"
                 )
 
             # Ensure UsuarioHint entries exist for each hint (mark all as not completed)
             hints = Hint.query.filter_by(room_id=room.id).order_by(Hint.id).all()
-            for h_idx, h in enumerate(hints):
+            for _, h in enumerate(hints):
                 uh = UsuarioHint.query.filter_by(
                     usuario_id=user.id, hint_id=h.id
                 ).first()
@@ -179,9 +179,7 @@ def seed():
                     uh = UsuarioHint(
                         usuario_id=user.id, hint_id=h.id, completed=is_first_room
                     )
-                    # only unlock the first hint of the first room
-                    if is_first_room and h_idx == 0 and "is_unlocked" in uh_columns:
-                        uh.is_unlocked = True
+                   
                     db.session.add(uh)
         db.session.commit()
 

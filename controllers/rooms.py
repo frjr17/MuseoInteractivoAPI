@@ -47,6 +47,8 @@ def get_room_hints(room_id: int):
     if room is None:
         return jsonify({"error": "room not found"}), 404
 
+    # get UsuarioRoom for current user and this room
+    ur = UsuarioRoom.query.filter_by(room_id=room.id, usuario_id=getattr(current_user, "id", None)).first()
     hints = Hint.query.filter_by(room_id=room_id).order_by(Hint.id).all()
 
     # Build lookup for user's hint completion
@@ -69,7 +71,7 @@ def get_room_hints(room_id: int):
             }
         )
 
-    return jsonify({"id": room.id, "name": room.name,"final_code":room.final_code, "hints": hints_out}), 200
+    return jsonify({"id": room.id, "completed": bool(ur.completed) if ur is not None else False, "name": room.name,"final_code":room.final_code, "hints": hints_out}), 200
 
 
 @bp.route("/<int:room_id>/verify_final_code", methods=["POST"])
@@ -92,9 +94,63 @@ def verify_final_code(room_id: int):
     submitted = data.get("final_code") or data.get("code")
     if submitted is None:
         return jsonify({"error": "final_code required in request body"}), 400
+    # Check if user already completed this room; if so, don't allow re-verification
+    uid = getattr(current_user, "id", None)
+    if uid is not None:
+        existing_ur = UsuarioRoom.query.filter_by(usuario_id=uid, room_id=room.id).first()
+        if existing_ur and existing_ur.completed:
+            return jsonify({"error": "room already completed"}), 400
 
     # simple equality check (case-sensitive). If you want case-insensitive, change accordingly.
     correct = (room.final_code == submitted)
+
+    if correct:
+        # mark this room completed for the current user and unlock the next room
+        try:
+            if uid is not None:
+                ur = UsuarioRoom.query.filter_by(usuario_id=uid, room_id=room.id).first()
+                room_was_completed_before = bool(ur and ur.completed)
+
+                if not ur:
+                    ur = UsuarioRoom(usuario_id=uid, room_id=room.id, completed=True, is_unlocked=True)
+                    _db.session.add(ur)
+                else:
+                    if not ur.completed:
+                        ur.completed = True
+                        _db.session.add(ur)
+
+                # Award 100 points to the user only if the room wasn't previously completed
+                if not room_was_completed_before:
+                    try:
+                        user = Usuario.query.filter_by(id=uid).first()
+                        if user:
+                            user.total_points = (user.total_points or 0) + 100
+                            _db.session.add(user)
+                    except Exception:
+                        # don't block the flow if scoring fails
+                        pass
+
+                # unlock next room (first room with id > current)
+                next_room = Room.query.filter(Room.id > room.id).order_by(Room.id).first()
+                if next_room:
+                    next_ur = UsuarioRoom.query.filter_by(usuario_id=uid, room_id=next_room.id).first()
+                    if not next_ur:
+                        next_ur = UsuarioRoom(usuario_id=uid, room_id=next_room.id, completed=False, is_unlocked=True)
+                        _db.session.add(next_ur)
+                    elif not next_ur.is_unlocked:
+                        next_ur.is_unlocked = True
+                        _db.session.add(next_ur)
+
+                try:
+                    _db.session.commit()
+                except Exception:
+                    try:
+                        _db.session.rollback()
+                    except Exception:
+                        pass
+        except Exception:
+            # don't raise to the client; just log in server logs if needed
+            pass
 
     return jsonify({"room_id": room.id, "correct": bool(correct)}), 200
 
