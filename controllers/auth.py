@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_login import login_user, logout_user, current_user, login_required
+from flask_login import logout_user, current_user, login_required
 from db.usuario import Usuario
 from db.room import Room, Hint, UsuarioRoom, UsuarioHint
 from db.init import db
@@ -116,8 +116,7 @@ def register():
     except Exception:
         db.session.rollback()
         raw_token = None
-    # keep cookie login for browser flows for now
-    login_user(user, remember=True)
+    # do not create a cookie-based session; return an opaque session token instead
 
     # Create per-user room and hint records so the frontend can show progress
     try:
@@ -152,7 +151,11 @@ def register():
     except Exception:
         db.session.rollback()
 
-    return jsonify({"id": str(user.id), "email": user.email}), 201
+    resp = {"id": str(user.id), "email": user.email}
+    if raw_token:
+        resp["sessionToken"] = raw_token
+        resp["sessionTokenExpiry"] = expires.isoformat() + "Z"
+    return jsonify(resp), 201
 
 
 @bp.route("/login", methods=["POST"])
@@ -167,7 +170,6 @@ def login():
 
     # Consider rememberMe field from frontend; default to False if not provided
     remember = _to_bool(data.get("rememberMe", False))
-    login_user(user, remember=remember)
     # create and return an opaque session token for API use
     try:
         raw_token = secrets.token_urlsafe(48)
