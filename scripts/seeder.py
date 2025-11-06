@@ -47,27 +47,10 @@ from db.usuario import Usuario
 from db.room import Room, Hint, UsuarioRoom, UsuarioHint
 
 
-ROOM_NAMES = [
-    "El Secreto del Canal",
-    "Leyendas Panameñas",
-    "El tesoro verde de Panamá",
-    "Sabores y Colores de Panamá",
-    "Las llaves de la ciudad",
-]
-
-# We'll generate 5 hints per room named "Pista 1" .. "Pista 5" and set
-# the lime_survey_url and image_url based on the created room.id and hint index.
-
-
-TEST_USER = {
-    "email": "test@example.com",
-    "nombre": "Test",
-    "apellido": "User",
-    "password": "secret",
-}
-# Allow overriding the TEST_USER from data.json
-if isinstance(_DATA.get("test_user"), dict):
-    TEST_USER = {**TEST_USER, **_DATA.get("test_user")}
+# All required data (test_user, rooms) must come from scripts/data.json
+TEST_USER = _DATA.get("test_user")
+if not isinstance(TEST_USER, dict):
+    raise RuntimeError("scripts/data.json must contain a top-level 'test_user' object with keys: email,nombre,apellido,password")
 
 
 def seed():
@@ -75,11 +58,10 @@ def seed():
         # Create tables (if not present)
         db.create_all()
 
-        # Source rooms data from data.json if present, otherwise use ROOM_NAMES
+        # Source rooms data from data.json (required)
         rooms_info = _DATA.get("rooms")
-        if not rooms_info:
-            # build minimal room info from ROOM_NAMES
-            rooms_info = [{"base_name": name} for name in ROOM_NAMES]
+        if not isinstance(rooms_info, list) or len(rooms_info) == 0:
+            raise RuntimeError("scripts/data.json must contain a top-level 'rooms' array with room definitions")
 
         # Create or get test user
         user = Usuario.query.filter_by(email=TEST_USER["email"]).first()
@@ -107,7 +89,9 @@ def seed():
         for idx, room_info in enumerate(rooms_info):
             is_first_room = idx == 0
 
-            base_name = room_info.get("base_name") or room_info.get("name") or ROOM_NAMES[idx]
+            base_name = room_info.get("base_name") or room_info.get("name")
+            if not base_name:
+                raise RuntimeError(f"room at index {idx} in scripts/data.json is missing 'base_name'")
             full_room_name = f"Sala {idx+1}: {base_name}"
 
             room = Room.query.filter_by(name=full_room_name).first()
@@ -130,12 +114,26 @@ def seed():
             else:
                 hints_list = [f"Pista {n}" for n in range(1, 6)]
 
-            for hint_idx, title in enumerate(hints_list, start=1):
+            for hint_idx, hint_item in enumerate(hints_list, start=1):
+                # hint_item may be a string (legacy) or an object with name/access_code
+                if isinstance(hint_item, dict):
+                    title = hint_item.get("name") or f"Pista {hint_idx}"
+                    access_code = hint_item.get("access_code")
+                else:
+                    title = str(hint_item)
+                    access_code = None
+
                 # avoid duplicate hint titles for same room
                 existing = Hint.query.filter_by(room_id=room.id, title=title).first()
                 if existing:
                     print(f"  Hint exists: {existing.title} (id={existing.id})")
+                    # ensure access_code is set if missing
+                    if access_code and existing.access_code != access_code:
+                        existing.access_code = access_code
+                        db.session.add(existing)
+                        db.session.commit()
                     continue
+
                 lime_path = f"index.php/S{room.id}P{hint_idx}"
                 lime_url = _join_host_path(LIME_SURVEY_HOST, lime_path)
 
@@ -146,10 +144,11 @@ def seed():
                     title=title,
                     image_url=image_url,
                     lime_survey_url=lime_url,
+                    access_code=access_code,
                 )
                 db.session.add(hint)
                 db.session.commit()
-                print(f"  Created hint: {hint.title} (id={hint.id}) survey={lime_url}")
+                print(f"  Created hint: {hint.title} (id={hint.id}) survey={lime_url} access_code={access_code}")
 
             # Ensure test user has access to the room via UsuarioRoom if not exists
             ur = UsuarioRoom.query.filter_by(
