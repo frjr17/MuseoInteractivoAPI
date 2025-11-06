@@ -11,6 +11,8 @@ import secrets
 import os
 import smtplib
 from email.message import EmailMessage
+import hashlib
+from db.session_token import SessionToken
 
 
 def send_reset_email(to_email: str, code: str) -> None:
@@ -103,6 +105,18 @@ def register():
     )
     db.session.add(user)
     db.session.commit()
+    # also create a session token for API clients
+    try:
+        raw_token = secrets.token_urlsafe(48)
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        expires = datetime.utcnow() + timedelta(hours=1)
+        st = SessionToken(token_hash=token_hash, usuario_id=user.id, expires_at=expires)
+        db.session.add(st)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raw_token = None
+    # keep cookie login for browser flows for now
     login_user(user, remember=True)
 
     # Create per-user room and hint records so the frontend can show progress
@@ -154,12 +168,45 @@ def login():
     # Consider rememberMe field from frontend; default to False if not provided
     remember = _to_bool(data.get("rememberMe", False))
     login_user(user, remember=remember)
-    return jsonify({"id": str(user.id), "email": user.email, "role": user.role}), 200
+    # create and return an opaque session token for API use
+    try:
+        raw_token = secrets.token_urlsafe(48)
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        expires = datetime.utcnow() + timedelta(hours=1)
+        st = SessionToken(token_hash=token_hash, usuario_id=user.id, expires_at=expires)
+        db.session.add(st)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raw_token = None
+
+    resp = {"id": str(user.id), "email": user.email, "role": user.role}
+    if raw_token:
+        resp["sessionToken"] = raw_token
+        resp["sessionTokenExpiry"] = expires.isoformat() + "Z"
+    return jsonify(resp), 200
 
 
 @bp.route("/logout", methods=["POST"])
 @login_required
 def logout():
+    # Revoke token provided in Authorization header if present
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        raw = auth.split(" ", 1)[1].strip()
+        try:
+            h = hashlib.sha256(raw.encode()).hexdigest()
+            st = SessionToken.query.filter_by(token_hash=h).first()
+            if st:
+                st.revoked = True
+                db.session.add(st)
+                db.session.commit()
+        except Exception:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+
     logout_user()
     return jsonify({"status": "logged out"})
 

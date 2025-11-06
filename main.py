@@ -34,6 +34,43 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 
 
+@login_manager.request_loader
+def load_user_from_request(request):
+    """Allow API clients to authenticate using Authorization: Bearer <sessionToken>.
+
+    The session token is an opaque random string issued at login. We store only
+    the sha256 hash in `session_tokens` and validate by hashing the presented
+    token and looking it up (also checking expiry and revoked flag).
+    """
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        return None
+    raw = auth.split(" ", 1)[1].strip()
+    try:
+        import hashlib
+        from db.session_token import SessionToken
+        from datetime import datetime
+
+        h = hashlib.sha256(raw.encode()).hexdigest()
+        st = SessionToken.query.filter_by(token_hash=h, revoked=False).first()
+        if not st:
+            return None
+        if st.expires_at < datetime.utcnow():
+            return None
+        # update last_used (best-effort)
+        try:
+            st.last_used = datetime.utcnow()
+            db.session.add(st)
+            db.session.commit()
+        except Exception:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+        return Usuario.query.get(st.usuario_id)
+    except Exception:
+        return None
+
 @login_manager.user_loader
 def load_user(user_id):
     try:
