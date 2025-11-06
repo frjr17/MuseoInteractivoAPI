@@ -131,7 +131,7 @@ def register():
                 ur = UsuarioRoom(
                     usuario_id=user.id,
                     room_id=room.id,
-                    completed=is_first_room,
+                    completed=False,
                     is_unlocked=is_first_room,
                 )
                 db.session.add(ur)
