@@ -64,6 +64,7 @@ def get_room_hints(room_id: int):
                 "title": h.title,
                 "limeSurveyUrl": getattr(h, "lime_survey_url", None),
                 "imageUrl": h.image_url,
+                "accessCode": getattr(h, "access_code", None),
                 "completed": bool(uh.completed) if uh is not None else False,
             }
         )
@@ -182,4 +183,7 @@ def complete_hint_for_user():
             pass
         return jsonify({"error": "db error", "detail": str(e)}), 500
 
-    return jsonify({"status": "ok", "hint": {"id": hint_id, "completed": True}}), 200
+    return jsonify({
+        "status": "ok",
+        "hint": {"id": hint_id, "completed": True, "accessCode": getattr(hint, "access_code", None)},
+    }), 200
