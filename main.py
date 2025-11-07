@@ -18,16 +18,8 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 
-# CORS and session cookie settings for browser SPA frontends.
-# FRONTEND_ORIGIN should be the exact origin (scheme + host + port) of your frontend.
-FRONTEND_ORIGIN = os.getenv('FRONTEND_ORIGIN')
-# Configure CORS for token-based auth: disable credential cookies and explicitly
-# allow the Authorization header. If FRONTEND_ORIGIN is not set we allow all
-# origins (useful for local/dev). For production set FRONTEND_ORIGIN.
-if FRONTEND_ORIGIN:
-    CORS(app, origins=FRONTEND_ORIGIN, supports_credentials=False, allow_headers=["Content-Type", "Authorization"]) 
-else:
-    CORS(app, origins="*", supports_credentials=False, allow_headers=["Content-Type", "Authorization"]) 
+
+CORS(app) 
 
 # Init extensions
 db.init_app(app)
