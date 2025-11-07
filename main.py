@@ -21,18 +21,56 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 # CORS and session cookie settings for browser SPA frontends.
 # FRONTEND_ORIGIN should be the exact origin (scheme + host + port) of your frontend.
 FRONTEND_ORIGIN = os.getenv('FRONTEND_ORIGIN')
-CORS(app, supports_credentials=True)
-
-# Cookie security settings — configurable via env vars.
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SECURE'] = os.getenv('SESSION_COOKIE_SECURE', 'true').lower() == 'true'
-app.config['SESSION_COOKIE_SAMESITE'] = os.getenv('SESSION_COOKIE_SAMESITE', 'None')
+# Configure CORS for token-based auth: disable credential cookies and explicitly
+# allow the Authorization header. If FRONTEND_ORIGIN is not set we allow all
+# origins (useful for local/dev). For production set FRONTEND_ORIGIN.
+if FRONTEND_ORIGIN:
+    CORS(app, origins=FRONTEND_ORIGIN, supports_credentials=False, allow_headers=["Content-Type", "Authorization"]) 
+else:
+    CORS(app, origins="*", supports_credentials=False, allow_headers=["Content-Type", "Authorization"]) 
 
 # Init extensions
 db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 
+
+@login_manager.request_loader
+def load_user_from_request(request):
+    """Allow API clients to authenticate using Authorization: Bearer <sessionToken>.
+
+    The session token is an opaque random string issued at login. We store only
+    the sha256 hash in `session_tokens` and validate by hashing the presented
+    token and looking it up (also checking expiry and revoked flag).
+    """
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        return None
+    raw = auth.split(" ", 1)[1].strip()
+    try:
+        import hashlib
+        from db.session_token import SessionToken
+        from datetime import datetime
+
+        h = hashlib.sha256(raw.encode()).hexdigest()
+        st = SessionToken.query.filter_by(token_hash=h, revoked=False).first()
+        if not st:
+            return None
+        if st.expires_at < datetime.utcnow():
+            return None
+        # update last_used (best-effort)
+        try:
+            st.last_used = datetime.utcnow()
+            db.session.add(st)
+            db.session.commit()
+        except Exception:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+        return Usuario.query.get(st.usuario_id)
+    except Exception:
+        return None
 
 @login_manager.user_loader
 def load_user(user_id):

@@ -53,6 +53,7 @@ class Hint(db.Model):
     image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     lime_survey_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     room: Mapped[Optional[Room]] = relationship("Room", backref="hints", lazy="selectin")
+    access_code: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
 
 # Association table for per-user hint completion
