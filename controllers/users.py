@@ -164,7 +164,9 @@ def apply_user_updates(user: Usuario, data: dict, allow_role_change: bool = Fals
 
     if 'password' in data:
         pw = data['password']
-        if pw and len(pw) < 8:
+        if not pw:
+            return False, 'password required'
+        if len(pw) < 8:
             return False, 'password too short'
         user.password = generate_password_hash(pw)
         changed = True

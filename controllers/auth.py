@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, logout_user, current_user, login_required
 from db.usuario import Usuario
@@ -83,12 +83,22 @@ def _to_bool(value):
     return s in ("1", "true", "t", "yes", "y", "on")
 
 
+def _issue_csrf_token() -> str:
+    token = session.get("csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["csrf_token"] = token
+    return token
+
+
 @bp.route("/register", methods=["POST"])
 def register():
     data = request.get_json() or {}
     required = ("nombre", "apellido", "email", "password")
     if not all(k in data for k in required):
         return jsonify({"error": "missing fields"}), 400
+    if not data.get("password") or len(str(data.get("password"))) < 8:
+        return jsonify({"error": "password too short"}), 400
 
     if Usuario.query.filter_by(email=data["email"]).first():
         return jsonify({"error": "email already registered"}), 400
@@ -138,7 +148,8 @@ def register():
     except Exception:
         db.session.rollback()
 
-    return jsonify({"id": str(user.id), "email": user.email}), 201
+    csrf_token = _issue_csrf_token()
+    return jsonify({"id": str(user.id), "email": user.email, "csrfToken": csrf_token}), 201
 
 
 @bp.route("/login", methods=["POST"])
@@ -150,17 +161,21 @@ def login():
     user = Usuario.query.filter_by(email=data["email"]).first()
     if not user or not check_password_hash(user.password, data["password"]):
         return jsonify({"error": "invalid credentials"}), 401
+    if not getattr(user, "is_active", True):
+        return jsonify({"error": "user inactive"}), 403
 
     # Consider rememberMe field from frontend; default to False if not provided
     remember = _to_bool(data.get("rememberMe", False))
     login_user(user, remember=remember)
-    return jsonify({"id": str(user.id), "email": user.email, "role": user.role}), 200
+    csrf_token = _issue_csrf_token()
+    return jsonify({"id": str(user.id), "email": user.email, "role": user.role, "csrfToken": csrf_token}), 200
 
 
 @bp.route("/logout", methods=["POST"])
 @login_required
 def logout():
     logout_user()
+    session.pop("csrf_token", None)
     return jsonify({"status": "logged out"})
 
 
@@ -249,6 +264,7 @@ def me():
         uid = str(user.id)
     except Exception:
         uid = None
+    csrf_token = _issue_csrf_token()
 
     return (
         jsonify(
@@ -260,6 +276,7 @@ def me():
                 "role": getattr(user, "role", None),
                 "totalPoints": getattr(user, "total_points", None),
                 "isAuthenticated": bool(user.is_authenticated),
+                "csrfToken": csrf_token,
             }
         ),
         200,

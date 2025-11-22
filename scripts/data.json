@@ -1,0 +1,60 @@
+{
+	"test_user": {
+		"email": "test@example.com",
+		"nombre": "Test",
+		"apellido": "User",
+		"password": "secret"
+	},
+
+	"rooms": [
+		{
+			"base_name": "El Secreto del Canal",
+			"final_code": "1881-1904-1914-1999",
+			"hints": []
+		},
+		{
+			"base_name": "Leyendas Panameñas",
+			"final_code": "Ru-ben-Bla-des-Patria",
+			"hints": [
+				{"name": "Pista 1", "access_code": "SALA-A9K3TQ"},
+				{"name": "Pista 2", "access_code": "SALA-ZX72LM"},
+				{"name": "Pista 3", "access_code": "SALA-P4N8YD"},
+				{"name": "Pista 4", "access_code": "SALA-R5C1JW"},
+				{"name": "Pista 5", "access_code": "SALA-H8V6EQ"}
+			]
+		},
+		{
+			"base_name": "El tesoro verde de Panamá",
+			"final_code": "F-A-U-N-A",
+			"hints": [
+				{"name": "Pista 1", "access_code": "SALA-Q2M5TP"},
+				{"name": "Pista 2", "access_code": "SALA-L7B9UA"},
+				{"name": "Pista 3", "access_code": "SALA-X1R3KF"},
+				{"name": "Pista 4", "access_code": "SALA-E4Y6DM"},
+				{"name": "Pista 5", "access_code": "SALA-T9N2VJ"}
+			]
+		},
+		{
+			"base_name": "Sabores y Colores de Panamá",
+			"final_code": "9-7-5-3-1",
+			"hints": [
+				{"name": "Pista 1", "access_code": "SALA-W5G8ZR"},
+				{"name": "Pista 2", "access_code": "SALA-K6L3XP"},
+				{"name": "Pista 3", "access_code": "SALA-D2Q9HF"},
+				{"name": "Pista 4", "access_code": "SALA-J1S7CY"},
+				{"name": "Pista 5", "access_code": "SALA-M8B5LK"}
+			]
+		},
+		{
+			"base_name": "Las llaves de la ciudad",
+			"final_code": "1-3-5-7-9",
+			"hints": [
+				{"name": "Pista 1", "access_code": "SALA-F3P6WN"},
+				{"name": "Pista 2", "access_code": "SALA-Y7T1RQ"},
+				{"name": "Pista 3", "access_code": "SALA-N9C2GV"},
+				{"name": "Pista 4", "access_code": "SALA-V4X8JE"},
+				{"name": "Pista 5", "access_code": "SALA-U5R3MB"}
+			]
+		}
+	]
+}

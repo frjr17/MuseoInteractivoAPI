@@ -1,5 +1,5 @@
 import os
-from flask import Flask
+from flask import Flask, jsonify, request, session
 try:
     from flask_cors import CORS
 except Exception:
@@ -11,17 +11,24 @@ from db.init import db
 from db.usuario import Usuario
 from db.password_reset import PasswordReset
 from db.room import Room, Hint, UsuarioRoom, UsuarioHint
-from flask_login import LoginManager
+from flask_login import LoginManager, current_user
+import secrets
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev')
+# Secret key must be explicitly provided; falling back to a default is insecure.
+secret_key = os.getenv('APP_SECRET_KEY') or os.getenv('SECRET_KEY')
+if not secret_key:
+    raise RuntimeError("APP_SECRET_KEY (or SECRET_KEY) is required")
+app.config['SECRET_KEY'] = secret_key
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 
 # CORS and session cookie settings for browser SPA frontends.
 # FRONTEND_ORIGIN should be the exact origin (scheme + host + port) of your frontend.
 FRONTEND_ORIGIN = os.getenv('FRONTEND_ORIGIN')
-CORS(app, supports_credentials=True)
+if not FRONTEND_ORIGIN:
+    raise RuntimeError("FRONTEND_ORIGIN is required for CORS")
+CORS(app, supports_credentials=True, origins=[FRONTEND_ORIGIN])
 
 # Cookie security settings — configurable via env vars.
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -40,17 +47,41 @@ def load_user(user_id):
         import uuid as _uuid
         # convert string id back to UUID if possible
         uid = _uuid.UUID(user_id)
-        return Usuario.query.get(uid)
+        user = Usuario.query.get(uid)
     except Exception:
         # fallback: try direct get (some DBs accept string)
-        return Usuario.query.get(user_id)
+        user = Usuario.query.get(user_id)
+    if user is not None and not getattr(user, "is_active", True):
+        # Treat inactive users as not logged in
+        return None
+    return user
 
 
 # For API clients, return JSON 401 instead of redirecting to a login page
 @login_manager.unauthorized_handler
 def unauthorized_callback():
-    from flask import jsonify
     return jsonify({'error': 'unauthorized'}), 401
+
+
+def _issue_csrf_token() -> str:
+    """Create or reuse a per-session CSRF token stored server-side."""
+    token = session.get("csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["csrf_token"] = token
+    return token
+
+
+@app.before_request
+def csrf_protect():
+    """Basic double-submit CSRF protection for session-authenticated users."""
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        # Only enforce CSRF once a user is authenticated (login-required routes)
+        if current_user.is_authenticated:
+            session_token = session.get("csrf_token")
+            header_token = request.headers.get("X-CSRF-Token")
+            if not session_token or not header_token or header_token != session_token:
+                return jsonify({"error": "csrf failed"}), 403
 
 
 from controllers.auth import bp as auth_bp
